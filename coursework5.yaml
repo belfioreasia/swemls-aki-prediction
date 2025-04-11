@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aki-detection-state
+  namespace: konigsallee
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: managed-csi
+  resources:
+    requests:
+      storage: 1G
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aki-detection
+  namespace: konigsallee
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: aki-detection
+  template:
+    metadata:
+      labels:
+        app: aki-detection
+    spec:
+      containers:
+      - name: aki-detection
+        image: imperialswemlsspring2025.azurecr.io/coursework5-konigsallee
+        command: ["/app/venv/bin/python3", "/app/system/main.py"]
+        args:
+        # Replace this with however you tell your solution where to find the
+        # initial history file. /data is mounted below.
+        - "--database_path=${DB_PATH}"
+        - "--history=${HISTORY_PATH}"
+        - "--mllp_address=${MLLP_ADDRESS}"
+        - "--pager_address=${PAGER_ADDRESS}"
+        env:
+        - name: MLLP_ADDRESS
+          value: konigsallee-simulator.coursework5:8440 
+        - name: PAGER_ADDRESS
+          value: konigsallee-simulator.coursework5:8441
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: HISTORY_PATH
+          value: ../data/history.csv
+        - name: DB_PATH
+          value: /app/state/hospital_aki.db
+        ports:
+        - name: http
+          containerPort: 8000
+        volumeMounts:
+          - mountPath: "/app/data"
+            name: hospital-history
+            readOnly: true
+          - mountPath: "/app/state"
+            name: aki-detection-state
+        resources:
+          requests:
+            memory: 1G
+            cpu: 1
+      initContainers:
+      - name: copy-hospital-history
+        image: imperialswemlsspring2025.azurecr.io/coursework4-history #coursework4-history
+        volumeMounts:
+          - mountPath: "/data"
+            name: hospital-history
+        resources:
+          requests:
+            memory: 1G
+            cpu: 1
+      volumes:
+      - name: hospital-history
+        emptyDir:
+          sizeLimit: 50Mi
+      - name: aki-detection-state
+        persistentVolumeClaim:
+          claimName: aki-detection-state

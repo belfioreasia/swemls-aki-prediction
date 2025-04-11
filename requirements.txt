@@ -1,0 +1,6 @@
+hl7==0.4.5
+joblib==1.4.0
+requests==2.31.0
+scikit-learn==1.6.0
+pandas==2.2.2
+prometheus-client
